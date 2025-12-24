@@ -369,7 +369,7 @@ X_test_scaled = scaler.transform(X_test)
 
 # Use more recent data for training (last 3 years) - crypto markets change over time
 # Keep recent patterns which are more relevant
-recent_cutoff = int(len(X_train_scaled) * 0.3)  # Use last 70% of data
+recent_cutoff = int(len(X_train_scaled) * 0.3)  # Use last 70% of data (Trial5 best)
 X_train_recent = X_train_scaled[recent_cutoff:]
 y_train_recent = y_train_full[recent_cutoff:]
 
@@ -398,18 +398,18 @@ lgb_params = {
     'metric': 'mse',
     'boosting_type': 'gbdt',
     'num_leaves': 255,
-    'learning_rate': 0.005,
-    'feature_fraction': 0.5,
-    'bagging_fraction': 0.7,
+    'learning_rate': 0.01,
+    'feature_fraction': 0.6,
+    'bagging_fraction': 0.8,
     'bagging_freq': 3,
-    'min_child_samples': 30,
-    'reg_alpha': 1.0,
-    'reg_lambda': 1.0,
+    'min_child_samples': 20,
+    'reg_alpha': 0.5,
+    'reg_lambda': 0.5,
     'n_estimators': 5000,
     'early_stopping_rounds': 200,
     'verbose': -1,
     'random_state': 42,
-    'max_depth': 12
+    'max_depth': 14
 }
 
 train_data = lgb.Dataset(X_tr, label=y_tr, feature_name=feature_cols)
@@ -435,13 +435,13 @@ model_names.append('LightGBM_v1')
 print("\n[2/5] Training XGBoost...")
 xgb_model = xgb.XGBRegressor(
     n_estimators=3000,
-    learning_rate=0.005,
-    max_depth=10,
-    min_child_weight=30,
-    subsample=0.7,
-    colsample_bytree=0.5,
-    reg_alpha=1.0,
-    reg_lambda=1.0,
+    learning_rate=0.01,
+    max_depth=12,
+    min_child_weight=20,
+    subsample=0.8,
+    colsample_bytree=0.6,
+    reg_alpha=0.5,
+    reg_lambda=0.5,
     random_state=42,
     early_stopping_rounds=150,
     verbosity=0
@@ -462,19 +462,19 @@ lgb_params2 = {
     'objective': 'regression',
     'metric': 'mse',
     'boosting_type': 'gbdt',
-    'num_leaves': 127,
+    'num_leaves': 191,
     'learning_rate': 0.01,
-    'feature_fraction': 0.6,
+    'feature_fraction': 0.55,
     'bagging_fraction': 0.8,
     'bagging_freq': 5,
-    'min_child_samples': 50,
+    'min_child_samples': 25,
     'reg_alpha': 0.5,
     'reg_lambda': 0.5,
     'n_estimators': 3000,
     'early_stopping_rounds': 150,
     'verbose': -1,
     'random_state': 123,
-    'max_depth': 10
+    'max_depth': 12
 }
 
 train_data2 = lgb.Dataset(X_tr, label=y_tr)
@@ -502,18 +502,18 @@ lgb_dart_params = {
     'objective': 'regression',
     'metric': 'mse',
     'boosting_type': 'dart',
-    'num_leaves': 63,
+    'num_leaves': 127,
     'learning_rate': 0.02,
     'feature_fraction': 0.6,
     'bagging_fraction': 0.8,
     'bagging_freq': 5,
-    'min_child_samples': 50,
+    'min_child_samples': 25,
     'reg_alpha': 0.5,
     'reg_lambda': 0.5,
     'n_estimators': 2000,
     'verbose': -1,
     'random_state': 456,
-    'max_depth': 8
+    'max_depth': 12
 }
 
 train_data3 = lgb.Dataset(X_tr, label=y_tr)
@@ -537,7 +537,7 @@ model_names.append('LightGBM_DART')
 
 # 5. Ridge Regression
 print("\n[5/5] Training Ridge Regression...")
-ridge = Ridge(alpha=10.0)
+ridge = Ridge(alpha=5.0)
 ridge.fit(X_tr, y_tr)
 ridge_pred_val = ridge.predict(X_val)
 ridge_pred_test = ridge.predict(X_test_scaled)
