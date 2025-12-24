@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler
+from sklearn.metrics import mean_squared_error
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
@@ -418,8 +419,49 @@ lgb_model = lgb.train(
 
 pred_val = lgb_model.predict(X_val, num_iteration=lgb_model.best_iteration)
 final_predictions = lgb_model.predict(X_test_scaled, num_iteration=lgb_model.best_iteration)
-final_corr = pearsonr(pred_val, y_val)[0]
-print(f"\nLightGBM v2 Validation Correlation: {final_corr:.6f}")
+
+# Make predictions on validation set
+y_val_pred = pred_val
+
+# Calculate metrics
+mse = mean_squared_error(y_val, y_val_pred)
+rmse = np.sqrt(mse)
+correlation, p_value = pearsonr(y_val, y_val_pred)
+
+print("📊 Validation Set Performance:")
+print(f"   RMSE: {rmse:.6f}")
+print(f"   Pearson Correlation: {correlation:.6f}")
+print(f"   P-value: {p_value:.6e}")
+print(f"\n🎯 Target: Pearson correlation > 0.10")
+
+# Plot predictions vs actuals
+fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+
+# Plot 1: Scatter plot
+axes[0].scatter(y_val, y_val_pred, alpha=0.3, s=1)
+axes[0].plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()],
+             'r--', lw=2, label='Perfect prediction')
+axes[0].set_xlabel('Actual Target')
+axes[0].set_ylabel('Predicted Target')
+axes[0].set_title(f'Validation: Predictions vs Actuals (Correlation: {correlation:.4f})')
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# Plot 2: Time series of predictions
+val_timestamps = train_df.iloc[-val_size:]['Timestamp'].values
+axes[1].plot(val_timestamps[:500], y_val[:500], label='Actual', alpha=0.7)
+axes[1].plot(val_timestamps[:500], y_val_pred[:500], label='Predicted', alpha=0.7)
+axes[1].set_xlabel('Time')
+axes[1].set_ylabel('Target')
+axes[1].set_title('Validation: First 500 Predictions Over Time')
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+print("\n✅ Validation complete! Use these metrics to improve your model.")
 
 # Feature importance
 importance = pd.DataFrame({
