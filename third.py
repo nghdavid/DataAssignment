@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler
 import lightgbm as lgb
+import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 import warnings
 warnings.filterwarnings('ignore')
@@ -430,6 +431,17 @@ print("\n" + "=" * 60)
 print("Top 30 Most Important Features")
 print("=" * 60)
 print(importance.head(30).to_string())
+
+# Plot feature importance
+fig, ax = plt.subplots(figsize=(10, 6))
+importance.head(10).plot(x='feature', y='importance',
+                                 kind='barh', ax=ax, legend=False)
+ax.set_title('Top 10 Most Important Features')
+ax.set_xlabel('Importance')
+ax.set_ylabel('Feature')
+ax.invert_yaxis()
+plt.tight_layout()
+plt.show()
 
 # Create submission
 submission = pd.DataFrame({
