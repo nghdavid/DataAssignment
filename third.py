@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import RobustScaler, StandardScaler
-from sklearn.linear_model import Ridge
+from sklearn.preprocessing import RobustScaler
 import lightgbm as lgb
-import xgboost as xgb
 from scipy.stats import pearsonr
 import warnings
 warnings.filterwarnings('ignore')
@@ -382,83 +380,12 @@ y_tr, y_val = y_train_recent[:-val_size], y_train_recent[-val_size:]
 
 print(f"\nTraining on {len(X_tr)} samples, validating on {len(X_val)} samples")
 
-# ============== ENSEMBLE OF MODELS ==============
+# ============== LightGBM v2 MODEL ==============
 print("\n" + "=" * 60)
-print("Training Ensemble Models")
+print("Training LightGBM v2")
 print("=" * 60)
 
-predictions_val = []
-predictions_test = []
-model_names = []
-
-# 1. LightGBM with aggressive parameters
-print("\n[1/5] Training LightGBM v1...")
 lgb_params = {
-    'objective': 'regression',
-    'metric': 'mse',
-    'boosting_type': 'gbdt',
-    'num_leaves': 255,
-    'learning_rate': 0.01,
-    'feature_fraction': 0.6,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 3,
-    'min_child_samples': 20,
-    'reg_alpha': 0.5,
-    'reg_lambda': 0.5,
-    'n_estimators': 5000,
-    'early_stopping_rounds': 200,
-    'verbose': -1,
-    'random_state': 42,
-    'max_depth': 14
-}
-
-train_data = lgb.Dataset(X_tr, label=y_tr, feature_name=feature_cols)
-val_data = lgb.Dataset(X_val, label=y_val, feature_name=feature_cols, reference=train_data)
-
-lgb_model = lgb.train(
-    lgb_params,
-    train_data,
-    valid_sets=[val_data],
-    valid_names=['valid'],
-    callbacks=[lgb.log_evaluation(period=500)]
-)
-
-lgb_pred_val = lgb_model.predict(X_val, num_iteration=lgb_model.best_iteration)
-lgb_pred_test = lgb_model.predict(X_test_scaled, num_iteration=lgb_model.best_iteration)
-lgb_corr = pearsonr(lgb_pred_val, y_val)[0]
-print(f"LightGBM v1 Validation Correlation: {lgb_corr:.6f}")
-predictions_val.append(lgb_pred_val)
-predictions_test.append(lgb_pred_test)
-model_names.append('LightGBM_v1')
-
-# 2. XGBoost
-print("\n[2/5] Training XGBoost...")
-xgb_model = xgb.XGBRegressor(
-    n_estimators=3000,
-    learning_rate=0.01,
-    max_depth=12,
-    min_child_weight=20,
-    subsample=0.8,
-    colsample_bytree=0.6,
-    reg_alpha=0.5,
-    reg_lambda=0.5,
-    random_state=42,
-    early_stopping_rounds=150,
-    verbosity=0
-)
-
-xgb_model.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=False)
-xgb_pred_val = xgb_model.predict(X_val)
-xgb_pred_test = xgb_model.predict(X_test_scaled)
-xgb_corr = pearsonr(xgb_pred_val, y_val)[0]
-print(f"XGBoost Validation Correlation: {xgb_corr:.6f}")
-predictions_val.append(xgb_pred_val)
-predictions_test.append(xgb_pred_test)
-model_names.append('XGBoost')
-
-# 3. LightGBM v2 with different params
-print("\n[3/5] Training LightGBM v2...")
-lgb_params2 = {
     'objective': 'regression',
     'metric': 'mse',
     'boosting_type': 'gbdt',
@@ -477,121 +404,21 @@ lgb_params2 = {
     'max_depth': 12
 }
 
-train_data2 = lgb.Dataset(X_tr, label=y_tr)
-val_data2 = lgb.Dataset(X_val, label=y_val, reference=train_data2)
+train_data = lgb.Dataset(X_tr, label=y_tr, feature_name=feature_cols)
+val_data = lgb.Dataset(X_val, label=y_val, feature_name=feature_cols, reference=train_data)
 
-lgb_model2 = lgb.train(
-    lgb_params2,
-    train_data2,
-    valid_sets=[val_data2],
+lgb_model = lgb.train(
+    lgb_params,
+    train_data,
+    valid_sets=[val_data],
     valid_names=['valid'],
     callbacks=[lgb.log_evaluation(period=500)]
 )
 
-lgb_pred_val2 = lgb_model2.predict(X_val, num_iteration=lgb_model2.best_iteration)
-lgb_pred_test2 = lgb_model2.predict(X_test_scaled, num_iteration=lgb_model2.best_iteration)
-lgb_corr2 = pearsonr(lgb_pred_val2, y_val)[0]
-print(f"LightGBM v2 Validation Correlation: {lgb_corr2:.6f}")
-predictions_val.append(lgb_pred_val2)
-predictions_test.append(lgb_pred_test2)
-model_names.append('LightGBM_v2')
-
-# 4. LightGBM DART
-print("\n[4/5] Training LightGBM DART...")
-lgb_dart_params = {
-    'objective': 'regression',
-    'metric': 'mse',
-    'boosting_type': 'dart',
-    'num_leaves': 127,
-    'learning_rate': 0.02,
-    'feature_fraction': 0.6,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'min_child_samples': 25,
-    'reg_alpha': 0.5,
-    'reg_lambda': 0.5,
-    'n_estimators': 2000,
-    'verbose': -1,
-    'random_state': 456,
-    'max_depth': 12
-}
-
-train_data3 = lgb.Dataset(X_tr, label=y_tr)
-val_data3 = lgb.Dataset(X_val, label=y_val, reference=train_data3)
-
-lgb_dart = lgb.train(
-    lgb_dart_params,
-    train_data3,
-    valid_sets=[val_data3],
-    valid_names=['valid'],
-    callbacks=[lgb.log_evaluation(period=500)]
-)
-
-dart_pred_val = lgb_dart.predict(X_val)
-dart_pred_test = lgb_dart.predict(X_test_scaled)
-dart_corr = pearsonr(dart_pred_val, y_val)[0]
-print(f"LightGBM DART Validation Correlation: {dart_corr:.6f}")
-predictions_val.append(dart_pred_val)
-predictions_test.append(dart_pred_test)
-model_names.append('LightGBM_DART')
-
-# 5. Ridge Regression
-print("\n[5/5] Training Ridge Regression...")
-ridge = Ridge(alpha=5.0)
-ridge.fit(X_tr, y_tr)
-ridge_pred_val = ridge.predict(X_val)
-ridge_pred_test = ridge.predict(X_test_scaled)
-ridge_corr = pearsonr(ridge_pred_val, y_val)[0]
-print(f"Ridge Validation Correlation: {ridge_corr:.6f}")
-predictions_val.append(ridge_pred_val)
-predictions_test.append(ridge_pred_test)
-model_names.append('Ridge')
-
-# ============== ENSEMBLE ==============
-print("\n" + "=" * 60)
-print("Creating Ensemble")
-print("=" * 60)
-
-# Calculate correlations
-correlations = [pearsonr(pred, y_val)[0] for pred in predictions_val]
-
-# Use squared correlations for weighting (emphasize better models)
-weights = np.array([max(c, 0) ** 2 for c in correlations])
-if weights.sum() > 0:
-    weights = weights / weights.sum()
-else:
-    weights = np.ones(len(correlations)) / len(correlations)
-
-print("\nModel weights based on validation correlation:")
-for name, w, c in zip(model_names, weights, correlations):
-    print(f"  {name}: weight={w:.4f}, corr={c:.6f}")
-
-# Weighted ensemble
-ensemble_val = np.zeros_like(predictions_val[0])
-ensemble_test = np.zeros_like(predictions_test[0])
-
-for w, pred_val, pred_test in zip(weights, predictions_val, predictions_test):
-    ensemble_val += w * pred_val
-    ensemble_test += w * pred_test
-
-ensemble_corr = pearsonr(ensemble_val, y_val)[0]
-print(f"\nWeighted Ensemble Validation Correlation: {ensemble_corr:.6f}")
-
-# Simple average
-simple_avg_val = np.mean(predictions_val, axis=0)
-simple_avg_test = np.mean(predictions_test, axis=0)
-simple_corr = pearsonr(simple_avg_val, y_val)[0]
-print(f"Simple Average Validation Correlation: {simple_corr:.6f}")
-
-# Use the best ensemble method
-if simple_corr > ensemble_corr:
-    final_predictions = simple_avg_test
-    final_corr = simple_corr
-    print("\nUsing Simple Average for final predictions")
-else:
-    final_predictions = ensemble_test
-    final_corr = ensemble_corr
-    print("\nUsing Weighted Ensemble for final predictions")
+pred_val = lgb_model.predict(X_val, num_iteration=lgb_model.best_iteration)
+final_predictions = lgb_model.predict(X_test_scaled, num_iteration=lgb_model.best_iteration)
+final_corr = pearsonr(pred_val, y_val)[0]
+print(f"\nLightGBM v2 Validation Correlation: {final_corr:.6f}")
 
 # Feature importance
 importance = pd.DataFrame({
